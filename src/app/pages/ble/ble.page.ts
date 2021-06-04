@@ -10,6 +10,7 @@ import { AlertController } from '@ionic/angular';
 })
 export class BLEPage implements OnInit {
   devices:any[]=[];
+  conectado:string = "";
   constructor(public bluetoothle: BluetoothLE,
                      public plt: Platform,
                      private alertCtrl:AlertController) {
@@ -53,6 +54,7 @@ export class BLEPage implements OnInit {
 
   onScan(){
     this.devices=[];
+    this.conectado="";
     this.bluetoothle.startScan({services:[]}).subscribe(
       device => {
         if (device.status === "scanStarted") {
@@ -125,11 +127,12 @@ export class BLEPage implements OnInit {
     this.bluetoothle.bond(direccion).subscribe(
         resultado=>{
           if (resultado.status) {
+            console.log(resultado.status),
             console.log("vinculado!!!")
           }
 
           else{
-            console.log("desconectado")
+            console.log("desvinculado")
           }
         },
         error=>{
@@ -140,13 +143,34 @@ export class BLEPage implements OnInit {
 
   }
   conectar(direccion:any){
+    console.log("ESTA CONECTANDOOOOOOOO")
     console.log('Connecting to device: ' + direccion + "...", "status");
-    new Promise(function (resolve, reject) {
 
-      this.bluetoothle.connect(resolve, reject, { address: direccion });
+    this.bluetoothle.connect({ address: direccion }).subscribe(result=>{
+      console.log("- " + JSON.stringify(result));
 
-    }).then(this.connectSuccess, ()=>{
-      console.log("nadaaa")
+    if (result.status === "connected") {
+        this.conectado="se conecto"
+        console.log("conectado")
+        this.descubrir(direccion)
+    }
+    else if (result.status === "disconnected") {
+        this.conectado="desconectado"
+        console.log("Disconnected from device: " + result.address, "status");
+      }
+    }
+      
+    , error=>{
+
+      console.log("error en connect: ",JSON.stringify(error));
+      this.bluetoothle.close({address:direccion}).then(
+        exito=>{
+          console.log("exito: ",JSON.stringify(exito.status))
+        },
+        error=>{
+          console.log("error: ",JSON.stringify(error.error))
+        }
+      )
     });
   
   }
@@ -171,6 +195,9 @@ export class BLEPage implements OnInit {
   }).then(resultado=>{
     if (resultado.status==="discovered") {
       console.log(JSON.stringify(resultado.address),JSON.stringify(resultado.services))
+      this.leerHR(direccion)
+      this.leerDescriptor(direccion)
+      this.suscribirHR(direccion)
     }
     else{
       console.log("nada papapapa")
@@ -178,8 +205,78 @@ export class BLEPage implements OnInit {
   })
 }
 
+  leerHR(direccion:any,){
+    this.bluetoothle.read({
+      "address": direccion,
+      "service": "1800",
+      "characteristic": "2A00"
+    }).then(resultado=>{
+      console.log("LEYENDO SERVICIO")
+      this.conversion(resultado.value)
+    },
+    error=>{
+      console.log("EDAAAAAAAA",JSON.stringify(error))
+    }
+    )
+  }
+  leerDescriptor(direccion:any){
+    this.bluetoothle.readDescriptor({
+      "address": direccion,
+      "service": "FEE0",
+      "characteristic": "2A2B",
+      "descriptor": "2902"
+    }).then(resultado=>{
+      console.log("LEYENDO DESCRIPTOR")
+      this.conversion(resultado.value)
+    },
+    error=>{
+      console.log("EERROR DESCRIPTOR",JSON.stringify(error))
+    }
+    )
+  }
+  suscribirHR(direccion:any){
+    this.bluetoothle.subscribe(
+      {
+      "address": direccion,
+      "service": "180D",
+      "characteristic": "2A37",
+    }).subscribe(
+      resultado=>{
+        if(resultado.status==="subscribed"){
+          console.log("SE SUSCRIBIO")
+          console.log(JSON.stringify(resultado))
+        }
+        else if(resultado.status==="subscribedResult"){
+          console.log("entra a suscribresult")
+        }
+        else{
+          console.log("nada da ")
+          console.log(JSON.stringify(resultado))
+        }
+        console.log("resultado por fuera",JSON.stringify(resultado))
+      },error=>{
+        console.log("ERROR EN SUSCRIPCIÓN",JSON.stringify(error))
+      }
+    );setTimeout(() => {
+      this.bluetoothle.unsubscribe(
+        {
+          "address": direccion,
+          "service": "180D",
+          "characteristic": "2A37",
+        }
+      ).then(
+        result=>{
+          console.log("SE DESUSCRIBIO")
+        }
+      )
+    }, 20000);;
+  }
+  conversion(valor){
+    var bytes = this.bluetoothle.encodedStringToBytes(valor);
+    var string = this.bluetoothle.bytesToString(bytes);
+    console.log(JSON.stringify(string))
+  }
   
-
 }
 
  //console.log(JSON.stringify(device),JSON.stringify(typeof(device)),"yyayayay")
