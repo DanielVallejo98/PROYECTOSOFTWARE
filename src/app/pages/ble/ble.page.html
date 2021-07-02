@@ -22,7 +22,7 @@
 <ion-content>
 
   <ion-list>
-    <ion-item (click)=conectar(device.address) *ngFor="let device of devices">
+    <ion-item (click)=conectar(device.address)  *ngFor="let device of devices">
       <ion-label>{{device.name}}</ion-label>
       <h2>{{device.address}}</h2>
       <h3>{{device.rssi}}</h3>
